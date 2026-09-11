@@ -32,6 +32,8 @@
        atoms (= ~2.56e9 DERO). Guard threshold = uint64_max / 72.
      - dero_out = amount x 100 fits uint64 for amount <= 184467440737095516
        atoms (= ~1.8e9 DUSD). Guard threshold = uint64_max / 100.
+     - cumulative issued_dusd / retired_dusd counters are monotonic and
+       MUST be guarded against uint64 lifetime overflow.
 
    Vault identification (v0.2.1 FIX):
      VaultID = SIGNER()   (raw compressed pubkey returned by the DVM
@@ -153,6 +155,7 @@ Function Mint(requested Uint64) Uint64
     40 DIM cap, avail AS Uint64
     50 DIM tot_debt, tot_col AS Uint64
     60 DIM gcap AS Uint64
+    65 DIM cur_issued AS Uint64
 
     70 LET amount = requested
     80 IF amount == 0 THEN GOTO 900
@@ -188,13 +191,18 @@ Function Mint(requested Uint64) Uint64
     290 IF tot_debt > gcap THEN GOTO 900
     300 IF amount > gcap - tot_debt THEN GOTO 900
 
-    // Atomic transition: [I6] delta DUSD issued = delta TotalDebt
-    310 STORE(key_debt, debt + amount)
-    320 STORE("total_debt", tot_debt + amount)
-    325 STORE("issued_dusd", LOAD("issued_dusd") + amount)
-    330 SEND_ASSET_TO_ADDRESS(SIGNER(), amount, SCID())
+    // Lifetime-counter overflow guard. total_debt itself is bounded by
+    // global_ceiling above, but issued_dusd is cumulative forever.
+    310 LET cur_issued = LOAD("issued_dusd")
+    315 IF cur_issued > 18446744073709551615 - amount THEN GOTO 900
 
-    340 RETURN 0
+    // Atomic transition: [I6] delta DUSD issued = delta TotalDebt
+    320 STORE(key_debt, debt + amount)
+    330 STORE("total_debt", tot_debt + amount)
+    335 STORE("issued_dusd", cur_issued + amount)
+    340 SEND_ASSET_TO_ADDRESS(SIGNER(), amount, SCID())
+
+    350 RETURN 0
     900 RETURN 1
 End Function
 
@@ -247,9 +255,17 @@ Function Redeem() Uint64
     40 DIM dero_out AS Uint64
     50 DIM new_debt, new_col AS Uint64
     60 DIM cap_after AS Uint64
+    65 DIM cur_retired AS Uint64
 
     70 LET amount = ASSETVALUE(SCID())
     80 IF amount == 0 THEN GOTO 900
+
+    // guard: retired_dusd counter add must be validated BEFORE any STORE
+    // (if it fired after a STORE it would commit a partial state mutation
+    // and break I6/I8). amount <= debt <= total_debt <= ceiling makes this
+    // defensive-only; it stays as a lifetime guard for the accumulator.
+    85 LET cur_retired = LOAD("retired_dusd")
+    87 IF cur_retired > 18446744073709551615 - amount THEN GOTO 900
 
     90 LET key_col = "c:" + SIGNER()
     100 LET key_debt = "d:" + SIGNER()
@@ -286,7 +302,7 @@ Function Redeem() Uint64
     280 STORE(key_col, new_col)
     290 STORE("total_debt", LOAD("total_debt") - amount)
     300 STORE("total_collateral", LOAD("total_collateral") - dero_out)
-    310 STORE("retired_dusd", LOAD("retired_dusd") + amount)
+    310 STORE("retired_dusd", cur_retired + amount)
 
     320 SEND_DERO_TO_ADDRESS(SIGNER(), dero_out)
 
