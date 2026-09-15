@@ -35,6 +35,30 @@ The V0.5.1 fix set: `mint_price="twap"`, `redeem_dero_settle="max"`,
 ledger-identity repair in `liquidate` and unclaimed-backer-fee rerouting to
 insurance. Details in `v0.5/FINAL-AUDIT-REPORT.md` section 7.
 
+## V0.5.1 implementation artifacts (new)
+
+- **`v0.5/DUSD-V0.5.1-CONTRACT.bas`** — executable-spec DVM-BASIC skeleton
+  encoding the V0.5.1 fix set as on-chain gate logic ([F1] mint at
+  `min(P0, TWAP)`, [F2] DERO redeem legs settle at `max(TWAP, spot)`, [F3]
+  `AMM_CAP` atom cap, [F4] POL drawdown guard, [F5] liquidation ledger
+  identity, [F6] unclaimed-backer-fee rollover to insurance). Built to the
+  V0.2.1 contract conventions (atoms, div-before-mul, EXISTS-guards); TWAP is
+  a block-anchored fixed-point decay. Simulator/testnet validation required
+  before any deploy (T1–T5 + HARD TODOs listed in the file).
+- **`v0.5/attack/test_v051_closure_tests.py`** — closure-mapping unit tests.
+  Re-runs S5/S9/S10/S16 under `V051_FIXES` and asserts the shipped FAILs flip
+  to PASS, exercises the fuzz-found liquidation ledger identity, and lints the
+  `.bas` (balanced functions, resolvable labels, fix-gate presence, atom-cap
+  safety). Run: `python3 attack/test_v051_closure_tests.py` (12/12 pass).
+- **`v0.5/GOVERNANCE-FOLLOWUPS.md`** — instruments for the residual WEAK/MIXED
+  findings (S3/S17 TWAP-wedge monitor, S5b `pol_drawdown_ratio` knob, S14
+  backer fee-share policy, S25 residual-S policy) with owners and acceptance
+  criteria.
+- Language note: the DERO on-chain language is DVM-BASIC, not Go. Go builds
+  the `derod` node; the audit engine (`attack/`) is an off-chain Python
+  simulator oracle used to validate the economics before porting the rules
+  into `.bas`.
+
 ## V0.5 economics (dynamic redemption + unified backing claim)
 
 Authoritative spec: `v0.5/DUSD-V0.5-ECONOMIC-DESIGN.md`. The V0.5 core decision
@@ -105,7 +129,9 @@ v0.2/ (repo root)   V0.2.1 contract + test plan/log
 v0.3/               economic spec, sim engine, adversarial report
 v0.4/               V0.4 + V0.4.1 spec/sims/tests/attack suite/reports/MC
 v0.5/               economic design, final audit report, attack engine + suites,
-                    fuzz/MC harness, saved run logs and results
+                    fuzz/MC harness, saved run logs and results,
+                    V0.5.1 DVM-BASIC contract skeleton + closure tests +
+                    governance follow-ups
 ```
 
 ## History
@@ -119,7 +145,9 @@ v0.5/               economic design, final audit report, attack engine + suites,
 - **V0.4 / V0.4.1** — unified-claim economics, native-unit fee splits
   (70/10/15/5), insurance bucket, V0.4.1 recursion fix from a fuzz failure.
 - **V0.5 / V0.5.1** — final unified-claim model, full S1–S25 + I1–I20 suite,
-  100k fuzz, 50k Monte Carlo, V0.5.1 closure of all three FAIL findings.
+  100k fuzz, 50k Monte Carlo, V0.5.1 closure of all three FAIL findings, and
+  V0.5.1 implementation artifacts: DVM-BASIC contract skeleton, closure unit
+  tests, governance follow-up instruments.
 
 ## Not yet proven (testnet-required)
 
