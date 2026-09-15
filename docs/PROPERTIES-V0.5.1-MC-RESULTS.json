@@ -1,0 +1,14 @@
+{
+  "claim_factor_never_exceeds_1": true,
+  "engine_baseline": "core/dusd_v051_state.py (reference, read-only)",
+  "first_violation": null,
+  "harness": "property-monte-carlo",
+  "invariant_violations": 0,
+  "max_outstanding_observed": 22.042478800965135,
+  "mc_sequences": 60000,
+  "mc_steps_each": 8,
+  "min_claim_factor_observed": 1.0,
+  "min_coverage_nonneg": true,
+  "target": "core.dusd_v051_state.ProtocolState",
+  "total_transitions": 480000
+}

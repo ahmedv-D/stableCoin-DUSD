@@ -165,24 +165,22 @@ def test_I_fee_split_conserves_fee_exactly():
     fee = d * SWAP_FEE
     r = s.swap_dero_for_dusd(d)
     assert r["fee"] == pytest.approx(fee)
-    # growth + backers + insurance (the "diverted" part) == 30% of gross fee
-    assert (s.fee_pol_growth_dero - d0_growth
-            + s.fee_backer_pool_dero - d0_back
-            + s.insurance.dero - d0_ins) == pytest.approx(fee * 0.30)
-    # depth 70% + growth 10% both stay in POL; everything sums to the gross fee exactly
-    pol_delta = s.pol.dero - d0_pol
-    # Depth 70% + growth 10% BOTH stay in POL physically (the growth share is an
-    # attribution tally INSIDE the POL depth, not a second native pool). So the
-    # physical conservation identity is: depth-in-POL + backer pool + insurance
-    # physical == gross fee exactly. The growth tally must NOT be added on top of
-    # pol_delta, which already embeds it.
-    total_diverted = ((pol_delta - (d - fee))
-                      + (s.fee_backer_pool_dero - d0_back)
-                      + (s.insurance.dero - d0_ins))
-    assert total_diverted == pytest.approx(fee, abs=1e-9)
-    # Growth tally stays embedded in POL (provenance attribution), i.e. it never
-    # creates a second, physically-over-allocated native pool on top of depth+growth.
+    # The three tallies (growth/backers/insurance) are PURE PROVENANCE labels —
+    # they attribute POL depth atoms, they do NOT add any atoms on top.
     assert (s.fee_pol_growth_dero - d0_growth) == pytest.approx(fee * 0.10)
+    assert (s.fee_backer_pool_dero - d0_back) == pytest.approx(fee * 0.15)
+    assert (s.fee_insurance_dero - d0_ins) == pytest.approx(fee * 0.05)
+    # CANONICAL conservation identity (70/10/15/5, all physically into backing):
+    # POL embeds depth 70% + growth 10% + backers 15% = 95% of gross fee
+    # (the growth/backer shares are attribution embedded INSIDE the POL depth);
+    # the insurance POOL receives the remaining 5%. Conservation-visible gain is
+    # therefore EXACTLY the gross fee (0.95 POL + 0.05 insurance = 1.00), nothing
+    # double-bookedщаться, nothing invisible, nothing double-counted.
+    pol_gain = s.pol.dero - d0_pol
+    ins_gain = s.insurance.dero - d0_ins
+    assert (pol_gain - (d - fee)) + ins_gain == pytest.approx(fee, abs=1e-9)
+    assert (s.pol.dero - d0_pol) - (d - fee) == pytest.approx(fee * 0.95)
+    assert s.insurance.dero - d0_ins == pytest.approx(fee * 0.05)
 
 
 # ---- J. Wrong fee denomination -------------------------------------------
