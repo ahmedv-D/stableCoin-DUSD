@@ -35,14 +35,68 @@ The V0.5.1 fix set: `mint_price="twap"`, `redeem_dero_settle="max"`,
 ledger-identity repair in `liquidate` and unclaimed-backer-fee rerouting to
 insurance. Details in `v0.5/FINAL-AUDIT-REPORT.md` section 7.
 
-## Protocol in one paragraph
+## V0.5 economics (dynamic redemption + unified backing claim)
 
-Anyone can Deposit DERO into the contract (a vault keyed by `SIGNER()`), Mint
-new DUSD up to the per-vault and global caps, Withdraw collateral while keeping
-the ratio, or Redeem DUSD back against the unified claim — POL DUSD → insurance
-DUSD → POL DERO → insurance DERO → eligible collateral, valued at internal TWAP
-(`P0 = $0.01` in DERO). Risk decisions use internal TWAP, not spot; insurance
-absorbs bounded losses before explicit bad-debt recognition.
+Authoritative spec: `v0.5/DUSD-V0.5-ECONOMIC-DESIGN.md`. The V0.5 core decision
+replaces the V0.2 fixed `100 DERO/DUSD` retire path with a **dynamic, basket
+redemption**, and redefines the token:
+
+> **1 DUSD is a pari-passu senior claim on the unified backing base** = POL +
+> insurance + eligible vault collateral.
+
+### Issuance (Genesis / Phase-1)
+- `P0 = 0.01 DUSD/DERO` — Genesis reference only, **not** a permanent floor.
+- `gross_mint = C * P0 * LTV`, `LTV = 0.72`.
+- `POL_DUSD = gross_mint * 0.0025`; `POL_DERO = POL_DUSD / P_spot`; the POL
+  DERO is a real share of the user's deposit (`vault_after = C - POL_DERO`).
+  No DERO is created; existing debt never reprices.
+
+### Endogenous price (no external oracle)
+- `X = POL DERO`, `Y = POL DUSD`, `P_spot = Y / X`.
+- `P_risk` = internal, block-anchored TWAP (BLOCK_S = 18.5 s, alpha 0.05).
+- Risk decisions use `P_risk`, never spot.
+
+### Unified backing NAV & claim factor
+- `Backing_NAV = (Y + P_risk*X) + (I_DUSD + P_risk*I_DERO) + (H*P_risk*C)`
+  with collateral liquidity haircut `H = 0.90`.
+- `Coverage = Backing_NAV / S`; `ClaimFactor = min(1, Coverage)`.
+- `RedeemValue = q * ClaimFactor`. If Coverage ≥ 1 the claim is fully backed;
+  if Coverage < 1 **every** DUSD receives the same proportional haircut.
+  No first-mover advantage (a hard invariant, verified by S6/S24).
+
+### Dynamic redemption basket (settlement order)
+1. liquid DUSD (POL + insurance)
+2. liquid DERO (POL + insurance), valued at `P_risk`
+3. mobilized/liquidated eligible collateral as permitted by the risk engine
+
+Never transfer more assets than controlled; burned DUSD are reduced before
+final accounting; residual under-collateralization is **explicit system loss**
+(bad debt recorded), never hidden token creation.
+
+### Solvency gate, liquidation, fees, locks
+- `MIN_COVERAGE = 1.00` — new mints rejected if proposed backing would breach
+  it (production candidates: 1.10–1.20).
+- `LIQ_CR = 1.20`, insurance absorbs bounded losses before bad-debt
+  recognition.
+- Swap fee split (native units only), 70% pool depth / 10% POL growth / 15%
+  active backers / 5% insurance.
+- POL-origin DERO cannot directly become fresh mint collateral
+  (provenance-based exclusion; cooldown alone is only rate limiting).
+- Backer weight `W = LockedDERO * CommittedLockDays`, lock curve
+  `T(u) = 30 + 1065*u^1.05977 / (u^1.05977 + 0.550857^1.05977)`,
+  bounded 30–1095 days.
+
+### Fundamental limitation (explicit)
+Dynamic redemption guarantees pari-passu claims, no payout above controlled
+assets, explicit haircut when undercollateralized, and no hidden DERO/DUSD
+creation. It **cannot** guarantee an external $1 fiat redemption through an
+arbitrary 90–99% DERO collapse without an independent reserve/capital source.
+
+### V0.5 acceptance target (met)
+Genesis, POL accounting, recursion, Sybil split, fee accounting, pump/dump,
+25–99% crashes, 100% redemption attempt, insurance depletion, POL depletion,
+TWAP manipulation, **100k fuzz**, **50k heavy-tail Monte Carlo** — all
+exercised in `v0.5/attack/` and closed per `v0.5/FINAL-AUDIT-REPORT.md`.
 
 ## Repository layout
 
