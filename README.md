@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/DUSD-logo-green.png" alt="DUSD — DERO-native soft-peg stablecoin" width="240"/>
+</p>
+
 # DUSD — DERO-native soft-peg stablecoin
 
 DUSD is a decentralized stablecoin deployed as a single DVM-BASIC smart
