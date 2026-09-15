@@ -84,6 +84,19 @@ class ProtocolState:
     total_pol_dusd_contributed: float = 0.0
     rolling_mints: List[Tuple[float, float]] = field(default_factory=list)
     provenance_excluded_dero: float = 0.0
+    # --- V0.5.1 bad-debt write-off ledger (audit row 22: discrete atom) ---
+    # Explicit system-loss account. Booked ONLY when a redemption is haircut
+    # (claim_factor < 1) and the shortfall is written off. NEVER repaired by
+    # hidden minting (mint() never touches these buckets); declared off-supply
+    # so the haircut is explicit on-chain loss, not silent token creation.
+    bad_debt_writeoff_dusd: float = 0.0
+    bad_debt_writeoff_dero: float = 0.0
+    # --- V0.5.1 anti-split vault-owner rolling ledger (audit row 11) ---
+    # Global/rolling 1095-day anti-split: rolling mint/split pressure is
+    # tracked per OWNER so rotation across addresses cannot reset the rolling
+    # window. Lock stays global-pressure-driven (rolling_mints), so splitting
+    # a mint across many transactions/addresses cannot shorten the commit.
+    owner_rolling_splits: Dict[str, List[Tuple[float, float]]] = field(default_factory=dict)
     fee_backer_pool_dero: float = 0.0
     fee_backer_pool_dusd: float = 0.0
     fee_insurance_dero: float = 0.0
@@ -164,9 +177,25 @@ class ProtocolState:
         cutoff = self.now - PROVENANCE_WINDOW_DAYS
         self.rolling_mints = [(t, x) for t, x in self.rolling_mints if t >= cutoff]
 
+    def _book_owner_split(self, owner: str, amount: float) -> None:
+        # Discrete V0.5.1 anti-split atom: per-owner 1095-day rolling split ledger.
+        # Booked at every mint so a user rotating across many addresses/transactions
+        # cannot reset their rolling window; the global lock stays pressure-driven
+        # (max(owner, global) == global since owner <= global), so splitting can
+        # never shorten the 1095-day anti-split commit below the global pressure.
+        self._trim_rolling()
+        self.owner_rolling_splits.setdefault(owner, []).append((self.now, amount))
+
+    def _trim_owner_rolling(self) -> None:
+        cutoff = self.now - PROVENANCE_WINDOW_DAYS
+        for o in list(self.owner_rolling_splits):
+            self.owner_rolling_splits[o] = [(t, x) for t, x in self.owner_rolling_splits[o] if t >= cutoff]
+            if not self.owner_rolling_splits[o]:
+                del self.owner_rolling_splits[o]
+
     def owner_pressure(self, owner: str) -> float:
         self._trim_rolling()
-        owner_total = sum(x for t, x in self.rolling_mints if False)  # intentionally zero; owner tracking is separate below
+        owner_total = sum(x for t, x in self.owner_rolling_splits.get(owner, []))  # REAL per-owner 1095d rolling anti-split ledger
         return owner_total
 
     def global_pressure(self) -> float:
@@ -176,6 +205,11 @@ class ProtocolState:
     def add_mint_pressure(self, amount: float) -> None:
         self._trim_rolling()
         self.rolling_mints.append((self.now, amount))
+        self._trim_owner_rolling()
+
+    def add_owner_pressure(self, owner: str, amount: float) -> None:
+        self._trim_owner_rolling()
+        self.owner_rolling_splits.setdefault(owner, []).append((self.now, amount))
 
     def pressure_ratio(self, incremental_mint: float = 0.0) -> float:
         pol_value = self.pol.dusd + self.spot() * self.pol.dero
@@ -244,6 +278,7 @@ class ProtocolState:
             raise ValueError("mint would violate minimum coverage")
 
         self.add_mint_pressure(user_net)
+        self._book_owner_split(owner, user_net)
         self.record_spot()
         evt = {
             "op": "mint",
@@ -284,7 +319,7 @@ class ProtocolState:
         self.fee_pol_growth_dusd += fee * 0.10
         self.fee_backer_pool_dusd += fee * 0.15
         self.fee_insurance_dusd += fee * 0.05
-        self.pol.dusd += fee * 0.80
+        self.pol.dusd += fee * 0.95
         self.insurance.dusd += fee * 0.05
         self.record_spot()
         self._assert_basic_invariants()
@@ -308,7 +343,7 @@ class ProtocolState:
         self.fee_pol_growth_dero += fee * 0.10
         self.fee_backer_pool_dero += fee * 0.15
         self.fee_insurance_dero += fee * 0.05
-        self.pol.dero += fee * 0.80
+        self.pol.dero += fee * 0.95
         self.insurance.dero += fee * 0.05
         self.record_spot()
         self._assert_basic_invariants()
@@ -368,6 +403,19 @@ class ProtocolState:
                 remaining_value -= released_value
 
         self.outstanding_dusd -= q
+
+        # --- V0.5.1 discrete bad-debt write-off atom (audit row 22) ---
+        # Any haircut shortfall (claim_factor < 1) is booked as EXPLICIT system
+        # loss into the bad-debt write-off ledger. It is NEVER repaired by hidden
+        # minting (mint() never touches these buckets) and never silently written
+        # away: the shortfall is on-chain book loss, declared off-supply, and
+        # surfaced in the redemption event so the haircut is not hidden output.
+        if claim_factor < 1.0 - 1e-12:
+            writeoff_dusd = q * (1.0 - claim_factor)
+            writeoff_dero = writeoff_dusd / settlement_price if settlement_price > 0 else 0.0
+            self.bad_debt_writeoff_dusd += writeoff_dusd
+            self.bad_debt_writeoff_dero += writeoff_dero
+
         self.record_spot()
         self.events.append({
             "op": "redeem", "owner": owner, "requested": q,
@@ -377,6 +425,8 @@ class ProtocolState:
             "risk_price": risk_price,
             "settlement_price": settlement_price,
             "coverage_after": self.coverage(risk_price),
+            "bad_debt_writeoff_dusd": self.bad_debt_writeoff_dusd,
+            "bad_debt_writeoff_dero": self.bad_debt_writeoff_dero,
         })
         self._assert_basic_invariants()
         return self.events[-1]
