@@ -1,0 +1,29 @@
+== V0.4.1 S1. Genesis ==
+  gross=7200.00 pol_dusd=18.00 pol_dero=1800.00 user=7182.00 lock=966.86
+  vault+p.dero = 1,000,000.00 == deposited 1,000,000? True
+== V0.4.1 S3. recursion (quarantine gate) ==
+  immediate re-mint after pool swap: quarantine
+  re-mint after quarantine (30.0d): ALLOWED lock=394.0057812118306
+  V0.4.1 first-lap: quarantine gate = ALLOWED; pool.dero=58,447.7
+  control single mint+swap: pool.dero=58,422.2 (V0.4 recursive loop drove this to 48,025)
+== V0.4.1 S4. anti-split ==
+  one-shot committed=966.86
+  multi-addr n=10: max committed=964.93 vs one-shot=966.86 -> STILL-CHEAT
+  multi-addr n=100: max committed=964.74 vs one-shot=966.86 -> STILL-CHEAT
+  multi-addr n=1000: max committed=964.72 vs one-shot=966.86 -> STILL-CHEAT
+== V0.4.1 S6/S9. weight + expiry-cliff + reversibility ==
+  fee event claims: big=0.4500 tiny=0.0000
+  after big expire: big claim stops: +=0 (claims now 0.4500)
+  x5: high=0.0500 end=0.010033 drift=+0.33%
+  x100: high=1.0000 end=0.010054 drift=+0.54%
+  x1000: high=10.0000 end=0.010058 drift=+0.58%
+== V0.4.1 S10. crash + liquidation ==
+  crash -25%: liq={'liquidated': 998200.0, 'insurance_used': 0.0, 'bad_debt': 0.0}
+  crash -50%: liq={'blocked': 'cr_above_thresh', 'cr': 9000000000.0}
+  crash -90%: liq={'blocked': 'cr_above_thresh', 'cr': 9000000000.0}
+  crash -99%: liq={'blocked': 'cr_above_thresh', 'cr': 9000000000.0}
+== V0.4.1 S16. integer budgets ==
+  K in scaled units (RS=100000): 4,194,825,750,000 vs u64 max 18,446,744,073,709,551,616
+  swap numerator scaled: 418,224,127,275,000,000 vs u64 max: OK
+== V0.4.1 S18. MC headless (N=400 paths) ==
+  mincr=8.6643 maxspot=1658.00 minpol=226.11 worst_redemption_ratio=0.0007 fails=0

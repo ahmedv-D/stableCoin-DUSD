@@ -1,0 +1,45 @@
+== CRITICAL AUDIT: position replacement on re-mint after expiry ==
+  mint#1: collateral=998,200.00 debt=7,182.00 lock=966.86 opened=0.0
+  after lock expiry (t=967.9): expiry was 966.9 -> expired=True
+  re-mint 1 DERO after expiry -> position replaced!
+  debt now=0.01 (was 7,182.00) collateral=0.9982 (was 998,200.00)
+  >>> old debt ERASED: 7,182.00 DUSD disappeared from ledger -> unbacked DUSD
+  ledger debt=0.0072 vs minted outstanding DUSD=8,200.01
+  same in SHIPPED sim:
+  shipped: debt after re-mint=0.0072 (old 7,182.00) collateral=0.9982 (old 998,200.00)
+  >>> shipped sim erases old debt too
+== S16. DVM-BASIC INTEGER SAFETY ==
+  X*Y (K): 4.195e+22 -> OVERFLOW
+  swap out numerator x*eff: 4.182e+22 -> OVERFLOW
+  pol_dusd atoms: 3.020e+07 -> safe
+  candidates: muldiv via (x/1e6)*(eff/1e6)/( (y+eff)/1e6 ) loses precision
+  Better: staged a.=(x*1000)>>? ; use 96-bit via uint64 pairs; or pre-scale reserves
+  naive out=x*eff/(y+eff) atoms: 4.182e+22 -> OVERFLOW
+  SAFE STAGED: out = (x // g) * eff // g // ((y+eff)//g)  with g=1e6?? -> compute:
+  staged out=837,704,000,000 atoms (8,377,040.00 DERO)  exact=837,703,133,844
+== S17. FUZZ (50k random cases) ==
+  50k cases: NO exceptions, positive balances throughout
+== S18. MONTE CARLO (heavy tails, fixed) ==
+  (N=2000 paths x 365 steps; scale to 50k in full run)
+    mincr: 3,276,902.9022
+    maxspot: 366,743.0591
+    minpol: 8.9607
+    maxdebt: 15,409.0080
+    minins: 280.9932
+    worstred: 0.0000
+    inv_fail: 0
+== S19. INVARIANT RATINGS (provisional, from attacks above) ==
+  I2 total DUSD<=ceiling: PASS (but reachability limited by supply)
+  I3 POL DERO <= deposited: PASS for a single mint (verified dep==vault+pol)
+  I4 old debt frozen: PASS (pump ladder)
+  I5 same-owner split: PASS; I5 multi-owner/sybil: FAIL (86d vs 966d)
+  I6 pol-origin recursion: FAIL (sybil bypasses cooldown; pool -53%)
+  I7 fees<=collected: FAIL (30% extra claims; 130% bookkeeping)
+  I8 fee units right: PASS in adversarial sim (native); SHIPPED sim FAIL (dero->dusd value conversion for dispatch)
+  I9 expired no future fees: PASS (claims=0 after expiry)
+  I10 accrued claimable: PARTIAL (accrued_dusd tracked but no claim fn in shipped; erasure on re-mint)
+  I11 withdraw<=collateral: UNTESTABLE (no withdraw fn)
+  I12 AMM invariant: PASS (K preserved subject to fees)
+  I13 no more DERO than controlled: FAIL (debt erasure -> DUSD unbacked; POL-conjure fixed)
+  I14 overflow-safe: FAIL (X*Y and x*eff exceed uint64)
+  I15 no token from nothing: FAIL (fee double-count; debt erasure)

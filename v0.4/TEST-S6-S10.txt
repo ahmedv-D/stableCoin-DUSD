@@ -1,0 +1,42 @@
+== S6. POL WEIGHT (Wall: LockedDERO*CommittedDays) ==
+  10000 x 365d: actual_committed=86.02 weight=858,641 (nominal=3,650,000)
+  5000 x 180d: actual_committed=57.63 weight=287,626 (nominal=900,000)
+  10000 x 30d: actual_committed=86.02 weight=858,641 (nominal=300,000)
+  100 x 1095d: actual_committed=30.45 weight=3,039 (nominal=109,500)
+  100000 x 30d: actual_committed=444.47 weight=44,366,772 (nominal=3,000,000)
+  sniff-cliff test:
+  all active after 40d: expired in accrual? [False, False, False]
+  before+after expiry fee accrual check (a=100k mint, b=10k):
+  a committed=444.47, b=85.92
+  fee swap after expiry: claims={}
+  fee swap both-directions after expiry: total claims={}
+  fee 1000 split big(t1y)+tiny: weights big=965,120,159 tiny=30 claims={'big': 90.0, 'tiny': 0.0}
+== S7. FEE ACCOUNTING (unit integrity) ==
+  dusd_for_dero 1: fee_dero=0.0000 fee_dusd=0.0030 exp=(0.0000,0.0030) natural_units=OK
+  dusd_for_dero 1,000: fee_dero=0.0000 fee_dusd=3.0000 exp=(0.0000,3.0000) natural_units=OK
+  dusd_for_dero 1,000,000: fee_dero=0.0000 fee_dusd=3000.0000 exp=(0.0000,3000.0000) natural_units=OK
+  dero_for_dusd 1: fee_dero=0.0030 fee_dusd=0.0000 exp=(0.0030,0.0000) natural_units=OK
+  dero_for_dusd 1,000: fee_dero=3.0000 fee_dusd=0.0000 exp=(3.0000,0.0000) natural_units=OK
+  dero_for_dusd 1,000,000: fee_dero=3000.0000 fee_dusd=0.0000 exp=(3000.0000,0.0000) natural_units=OK
+  dero fee -> insurance_dero=0.1500 insurance_dusd=0.0000 (spec: 5% of fee, must stay native)
+== S8+S9. AMM MANIPULATION & REVERSIBILITY ==
+  price reachability (exact closed-form):
+  target P=0 (x5): need DUSD inflow=1,236.07 leftover X=44,721.36
+  target P=1 (x100): need DUSD inflow=9,000.00 leftover X=10,000.00
+  target P=10 (x1000): need DUSD inflow=30,622.78 leftover X=3,162.28
+  target P=100 (x10000): need DUSD inflow=99,000.00 leftover X=1,000.00
+  target P=1,000 (x100000): need DUSD inflow=315,227.77 leftover X=316.23
+  round trips (whale full buy/sell incl fees):
+  x5: high=0.0500 bought_dero=1,000,055,241.46 sold_back=2,237.83 end_spot=0.000000 drift=-100.00%
+  x100: high=1.0000 bought_dero=1,000,089,986.45 sold_back=10,013.45 end_spot=0.000000 drift=-100.00%
+  x1000: high=10.0000 bought_dero=1,000,096,833.11 sold_back=31,668.78 end_spot=0.000000 drift=-100.00%
+== S10. CRASH LADDER ==
+  vault: collateral=998,200.00 DERO debt=7182.00 DUSD insurance_dusd=0.00 insurance_dero=0.00
+  insolvency threshold: col*price==debt -> price_break=0.007195 (71.9% of P0)
+  crash - 10%: price=0.00900 collval=8,983.80 CR=1.2509 unbacked=0.00
+  crash - 25%: price=0.00750 collval=7,486.50 CR=1.0424 unbacked=0.00
+  crash - 50%: price=0.00500 collval=4,991.00 CR=0.6949 unbacked=2,191.00
+  crash - 75%: price=0.00250 collval=2,495.50 CR=0.3475 unbacked=4,686.50
+  crash - 90%: price=0.00100 collval=998.20 CR=0.1390 unbacked=6,183.80
+  crash - 95%: price=0.00050 collval=499.10 CR=0.0695 unbacked=6,682.90
+  crash - 99%: price=0.00010 collval=99.82 CR=0.0139 unbacked=7,082.18

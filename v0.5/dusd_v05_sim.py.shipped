@@ -1,0 +1,75 @@
+from dataclasses import dataclass
+P0=0.01
+LTV=0.72
+Q=0.0025
+H=0.90
+
+@dataclass
+class State:
+    vault_dero: float
+    pol_dero: float
+    pol_dusd: float
+    ins_dero: float
+    ins_dusd: float
+    debt: float
+
+    def nav(self,p):
+        return self.pol_dusd+p*self.pol_dero + self.ins_dusd+p*self.ins_dero + H*p*self.vault_dero
+    def coverage(self,p):
+        return float("inf") if self.debt<=0 else self.nav(p)/self.debt
+    def claim_factor(self,p):
+        return min(1.0,self.coverage(p))
+
+def genesis_mint(state, deposit, spot):
+    gross=deposit*P0*LTV
+    pol_dusd=gross*Q
+    pol_dero=pol_dusd/spot
+    assert pol_dero<deposit
+    state.vault_dero += deposit-pol_dero
+    state.pol_dero += pol_dero
+    state.pol_dusd += pol_dusd
+    state.debt += gross-pol_dusd
+    return gross,pol_dusd,pol_dero,gross-pol_dusd
+
+def redeem_claim(state,q,p):
+    assert 0<=q<=state.debt
+    cf=state.claim_factor(p)
+    target=q*cf
+
+    # Liquid DUSD first: consume POL DUSD, then insurance DUSD.
+    use_pol_dusd=min(state.pol_dusd,target)
+    state.pol_dusd-=use_pol_dusd
+    rem_value=target-use_pol_dusd
+
+    use_ins_dusd=min(state.ins_dusd,rem_value)
+    state.ins_dusd-=use_ins_dusd
+    rem_value-=use_ins_dusd
+
+    # Then liquid DERO from POL, then insurance DERO.
+    if p<=0:
+        use_pol_dero=0.0
+        use_ins_dero=0.0
+    else:
+        need_dero=rem_value/p
+        use_pol_dero=min(state.pol_dero,need_dero)
+        state.pol_dero-=use_pol_dero
+        rem_dero=need_dero-use_pol_dero
+        use_ins_dero=min(state.ins_dero,rem_dero)
+        state.ins_dero-=use_ins_dero
+
+    paid_value=(use_pol_dusd+use_ins_dusd)+(use_pol_dero+use_ins_dero)*p
+    state.debt-=q
+
+    return {
+        "requested":q,
+        "claim_factor":cf,
+        "target":target,
+        "paid_value":paid_value,
+        "paid_dusd":use_pol_dusd+use_ins_dusd,
+        "paid_dero":use_pol_dero+use_ins_dero,
+        "unpaid_value":max(0.0,target-paid_value),
+        "debt_after":state.debt,
+    }
+
+def genesis_state():
+    return State(0,0,0,0,0,0)

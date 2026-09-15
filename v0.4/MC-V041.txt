@@ -1,0 +1,7 @@
+mincr: 0.601889
+maxspot: 11,320.8
+minpol: 53.6661
+maxdebt: 7,690.51
+minins: 34.3237
+worstred: 0.000129226
+fail: 0

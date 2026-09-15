@@ -1,0 +1,58 @@
+{
+  "fuzz_shipped": {
+    "runs": 100000,
+    "audit_fails": 0,
+    "fail_rate": 0.0,
+    "first_fail": null
+  },
+  "fuzz_fixed": {
+    "runs": 100000,
+    "audit_fails": 0,
+    "fail_rate": 0.0,
+    "first_fail": null
+  },
+  "mc_shipped": {
+    "runs": 50000,
+    "days": 400,
+    "total_claimed": 54108048.57062283,
+    "total_refunded": 54108048.57062283,
+    "total_sub_subsidy": 34121499.11493167,
+    "total_pool_overpay": 0.0,
+    "total_real_value": 19986549.455690794,
+    "claim_haircut": 1.0,
+    "real_haircut": 0.36938218959428887,
+    "twap_subsidy_frac": 0.6306178104057044,
+    "pool_overpay_frac": 0.0,
+    "worst": {
+      "claim_haircut_min": 1.0,
+      "residual_s_max": 2539.767932531263,
+      "bad_debt_max": 0.0,
+      "coverage_min": 0.018741188542683262,
+      "run_unpaid_max": 4.547473508864641e-13,
+      "dero_subsidy_max": 0.0
+    },
+    "audits": 50000
+  },
+  "mc_fixed": {
+    "runs": 50000,
+    "days": 400,
+    "total_claimed": 88212852.8238733,
+    "total_refunded": 88212852.8238733,
+    "total_sub_subsidy": 33098408.91295552,
+    "total_pool_overpay": 0.0,
+    "total_real_value": 55114443.91092153,
+    "claim_haircut": 1.0,
+    "real_haircut": 0.6247892698920372,
+    "twap_subsidy_frac": 0.3752107301080053,
+    "pool_overpay_frac": 0.0,
+    "worst": {
+      "claim_haircut_min": 1.0,
+      "residual_s_max": 1257.1489926729114,
+      "bad_debt_max": 0.0,
+      "coverage_min": 1.0,
+      "run_unpaid_max": 1.1368683772161603e-13,
+      "dero_subsidy_max": 0.0
+    },
+    "audits": 50000
+  }
+}

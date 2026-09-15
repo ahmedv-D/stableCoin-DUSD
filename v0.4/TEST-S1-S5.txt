@@ -1,0 +1,59 @@
+== S1. GENESIS CORRECTNESS ==
+C=1: gross=0.007200 pol_dusd=0.000018 pol_dero=0.001800 vault_coll=0.998200 user=0.007182 lock=30.00 dep==vault+pol True
+C=10: gross=0.072000 pol_dusd=0.000180 pol_dero=0.018000 vault_coll=9.982000 user=0.071820 lock=30.04 dep==vault+pol True
+C=100: gross=0.720000 pol_dusd=0.001800 pol_dero=0.180000 vault_coll=99.820000 user=0.718200 lock=30.45 dep==vault+pol True
+C=1,000: gross=7.200000 pol_dusd=0.018000 pol_dero=1.800000 vault_coll=998.200000 user=7.182000 lock=35.13 dep==vault+pol True
+C=10,000: gross=72.000000 pol_dusd=0.180000 pol_dero=18.000000 vault_coll=9982.000000 user=71.820000 lock=86.02 dep==vault+pol True
+C=100,000: gross=720.000000 pol_dusd=1.800000 pol_dero=180.000000 vault_coll=99820.000000 user=718.200000 lock=444.47 dep==vault+pol True
+C=1,000,000: gross=7200.000000 pol_dusd=18.000000 pol_dero=1800.000000 vault_coll=998200.000000 user=7182.000000 lock=966.86 dep==vault+pol True
+C=10,000,000: gross=72000.000000 pol_dusd=180.000000 pol_dero=18000.000000 vault_coll=9982000.000000 user=71820.000000 lock=1082.46 dep==vault+pol True
+C=16,779,303: gross=120810.981600 pol_dusd=302.027454 pol_dero=30202.745400 vault_coll=16749100.254600 user=120508.954146 lock=1087.72 dep==vault+pol True
+  ceiling (250k) reachable at P0-only over real supply?
+  max phase-1 DUSD if ALL DERO deposited = 120,811 (48.3% of ceiling)
+== S2. POL ACCOUNTING across pool states ==
+balanced: spot=0.010000 pol_dero=1800.0000 vault=998200.00
+   tot_now=1,100,000.00 expected=1,100,000.00 match=OK
+dero_heavy: spot=0.001000 pol_dero=18000.0000 vault=982000.00
+   tot_now=2,000,000.00 expected=2,000,000.00 match=OK
+dusd_heavy: spot=1.000000 pol_dero=18.0000 vault=999982.00
+   tot_now=1,100,000.00 expected=1,100,000.00 match=OK
+tiny: spot=0.010000 pol_dero=1800.0000 vault=998200.00
+   tot_now=1,000,010.00 expected=1,000,010.00 match=OK
+huge: spot=0.010000 pol_dero=1800.0000 vault=998200.00
+   tot_now=11,000,000.00 expected=11,000,000.00 match=OK
+== S3. RECURSIVE POL DRAIN (sybil cooldown bypass) ==
+iters=1: pool.dero=58,422.21 (start 101,800) pool.dusd=1,720.00 spot=0.0294 debt=718.20
+iters=2: pool.dero=49,795.14 (start 101,800) pool.dusd=2,020.66 spot=0.0406 debt=1,018.10
+iters=5: pool.dero=48,033.29 (start 101,800) pool.dusd=2,095.38 spot=0.0436 debt=1,092.64
+iters=10: pool.dero=48,025.41 (start 101,800) pool.dusd=2,095.73 spot=0.0436 debt=1,092.99
+iters=50: pool.dero=48,025.41 (start 101,800) pool.dusd=2,095.73 spot=0.0436 debt=1,092.99
+== S4. ANTI-SPLIT ==
+one-shot: committed=966.86
+same-addr n=2: committed=966.86 (one-shot lock=966.86) advantage=no
+same-addr n=10: committed=966.86 (one-shot lock=966.86) advantage=no
+same-addr n=100: committed=966.86 (one-shot lock=966.86) advantage=no
+same-addr n=1000: committed=966.86 (one-shot lock=966.86) advantage=no
+same-addr n=10000: committed=966.86 (one-shot lock=966.86) advantage=no
+multi-addr n=2: max_lock=858.72 vs one-shot=966.86 advantage=YES (SYBIL)
+multi-addr n=10: max_lock=444.47 vs one-shot=966.86 advantage=YES (SYBIL)
+multi-addr n=100: max_lock=86.02 vs one-shot=966.86 advantage=YES (SYBIL)
+== S5. LOCK FUNCTION ==
+  u=0          T=   30.00
+  u=1e-06      T=   30.00
+  u=1e-05      T=   30.01
+  u=0.0001     T=   30.12
+  u=0.001      T=   31.32
+  u=0.01       T=   45.00
+  u=0.05       T=  107.65
+  u=0.1        T=  180.00
+  u=0.2        T=  301.25
+  u=0.5        T=  535.19
+  u=1          T=  725.36
+  u=2          T=  878.61
+  u=5          T= 1001.22
+  u=10         T= 1047.85
+  u=100        T= 1090.72
+  u=1000       T= 1094.63
+  u=10000      T= 1094.97
+  monotonic=YES bounds=[30.0,1095.0]
+  whale u=1e4 -> 1094.97d  small u=1e-6 -> 30.00d  gap=1064.97d

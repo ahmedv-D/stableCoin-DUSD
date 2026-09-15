@@ -1,0 +1,35 @@
+== S11. PUMP LADDER (old debt must not rise; indirect new debt) ==
+  pump x2: spot=0.02000 alice_debt before=7182.00 after=7182.00 fmt=FIXED
+  pump x10: spot=0.10000 alice_debt before=7182.00 after=7182.00 fmt=FIXED
+  pump x100: spot=1.00000 alice_debt before=7182.00 after=7182.00 fmt=FIXED
+  pump x1000: spot=10.00000 alice_debt before=7182.00 after=7182.00 fmt=FIXED
+  buy->relock->mint loop under pump (fresh addr each lap):
+  laps=1: pool.dero=58,570.97 spot=0.0294 debt_poolside=1,436.40
+  laps=3: pool.dero=48,440.90 spot=0.0430 debt_poolside=1,798.81
+  laps=5: pool.dero=48,155.02 spot=0.0436 debt_poolside=1,811.26
+== S12. BANK RUN (separate POL liquidity from protocol collateral) ==
+  redemption capacity (exact worst-case):
+  run  10% (target 1,540 DUSD): sold 1,540.00 got 61,859.92 DERO; pool DERO=41,740.08 DUSD=2,576.00 spot=0.0617
+  run  25% (target 3,850 DUSD): sold 3,850.00 got 81,581.19 DERO; pool DERO=22,018.81 DUSD=4,886.00 spot=0.2219
+  run  50% (target 7,700 DUSD): sold 7,700.00 got 91,281.53 DERO; pool DERO=12,318.47 DUSD=8,736.00 spot=0.7092
+  run  75% (target 11,550 DUSD): sold 11,550.00 got 95,048.76 DERO; pool DERO=8,551.24 DUSD=12,586.00 spot=1.4718
+  run  90% (target 13,860 DUSD): sold 13,860.00 got 96,374.57 DERO; pool DERO=7,225.43 DUSD=14,896.00 spot=2.0616
+  run  99% (target 15,246 DUSD): sold 14,364.00 got 96,610.99 DERO; pool DERO=6,989.01 DUSD=15,400.00 spot=2.2035
+  run 100% (target 15,400 DUSD): sold 14,364.00 got 96,610.99 DERO; pool DERO=6,989.01 DUSD=15,400.00 spot=2.2035
+== S13. INSURANCE ==
+  after heavy fees: insurance_dusd=150.00 pol_growth_dusd=300.00 backers_claims=0.00 insurance_dero=0.00
+  outstanding debt ~0.00 -> insurance covers 15000.00%
+  NOTE: no liquidation/redeem/mint-halt engine exists in V0.4 sim
+== S14. TWAP MANIPULATION ==
+  pump    100 DUSD/blk: 1blk->0.01010(+1.0%)  3blk->0.01065(+6.5%)  10blk->0.01647(+64.7%)  50blk->0.20237(+1923.7%)
+  pump   1000 DUSD/blk: 1blk->0.01150(+15.0%)  3blk->0.02261(+126.1%)  10blk->0.22968(+2196.8%)  50blk->13.36522(+133552.2%)
+  pump   5000 DUSD/blk: 1blk->0.02746(+174.6%)  3blk->0.20942(+1994.2%)  10blk->4.54844(+45384.4%)  50blk->320.36715(+3203571.5%)
+  pump  20000 DUSD/blk: 1blk->0.22937(+2193.7%)  3blk->2.85268(+28426.8%)  10blk->69.75402(+697440.2%)  50blk->5084.09519(+50840851.9%)
+  EMA alpha=0.05 per advance(); cost to move TWAP +50% requires dozens of blocks of pushed spot; each swap also shifts spot immediately
+== S15. CEILING REACHABILITY (Phase-1 P0-only issuance) ==
+  supply=  16,779,303 DERO -> max mintable @P0 =       120,811 DUSD ( 48.3% of 250k ceiling) unreachable
+  supply=  10,000,000 DERO -> max mintable @P0 =        72,000 DUSD ( 28.8% of 250k ceiling) unreachable
+  supply=  20,000,000 DERO -> max mintable @P0 =       144,000 DUSD ( 57.6% of 250k ceiling) unreachable
+  supply=  50,000,000 DERO -> max mintable @P0 =       360,000 DUSD (144.0% of 250k ceiling) CEILING HIT
+  supply= 100,000,000 DERO -> max mintable @P0 =       720,000 DUSD (288.0% of 250k ceiling) CEILING HIT
+  practical: not all supply deposited; realistic issuance far smaller
