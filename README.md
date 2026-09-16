@@ -17,9 +17,9 @@ EVALUATION`, pending governance decisions on the residual WEAK instruments.
 
 | Version | Scope | State | Latest artifact |
 |---------|-------|-------|-----------------|
-| V0.2.1 | Single DVM-BASIC vault skeleton, per-vault MINT_RATIO, global ceiling, emergency state machine | Simulator-verified skeleton | `DUSD-V0.2-TESTLOG.md` |
-| V0.3 | Second-simulation economics (POL-origin DERO, mint gating) + adversarial pass | Audit complete | `v0.3/DUSD-V0.3-ADVERSARIAL-REPORT.md` |
-| V0.4 / V0.4.1 | Unified-claim economics, liquidity/insurance splits, recursion fix | Audit complete | `v0.4/DUSD-V0.4-ADVERSARIAL-REPORT.md`, `v0.4/DUSD-V0.4.1-CHANGESET.md` |
+| V0.2.1 | Single DVM-BASIC vault skeleton, per-vault MINT_RATIO, global ceiling, emergency state machine | Simulator-verified skeleton | `archive/v0.2/DUSD-V0.2-TESTLOG.md` |
+| V0.3 | Second-simulation economics (POL-origin DERO, mint gating) + adversarial pass | Audit complete | `archive/v0.3/DUSD-V0.3-ADVERSARIAL-REPORT.md` |
+| V0.4 / V0.4.1 | Unified-claim economics, liquidity/insurance splits, recursion fix | Audit complete | `archive/v0.4/DUSD-V0.4-ADVERSARIAL-REPORT.md`, `archive/v0.4/DUSD-V0.4.1-CHANGESET.md` |
 | V0.5 / V0.5.1 | Unified-claim dynamic redemption used by this audit as the final model | Audit + 100k fuzz + 50k MC closed | `v0.5/FINAL-AUDIT-REPORT.md` |
 
 ## V0.5.1 headline results
@@ -63,7 +63,7 @@ final battery.
   Re-runs S5/S9/S10/S16 under `V051_FIXES` and asserts the shipped FAILs flip
   to PASS, exercises the fuzz-found liquidation ledger identity, and lints the
   `.bas` (balanced functions, resolvable labels, fix-gate presence, atom-cap
-  safety). Run: `python3 attack/test_v051_closure_tests.py` (12/12 pass).
+  safety). Run: `python3 v0.5/attack/test_v051_closure_tests.py` (12/12 pass).
 - **`v0.5/GOVERNANCE-FOLLOWUPS.md`** — instruments for the residual WEAK/MIXED
   findings (S3/S17 TWAP-wedge monitor, S5b `pol_drawdown_ratio` knob, S14
   backer fee-share policy, S25 residual-S policy) with owners and acceptance
@@ -134,18 +134,25 @@ arbitrary 90–99% DERO collapse without an independent reserve/capital source.
 Genesis, POL accounting, recursion, Sybil split, fee accounting, pump/dump,
 25–99% crashes, 100% redemption attempt, insurance depletion, POL depletion,
 TWAP manipulation, **100k fuzz**, **50k heavy-tail Monte Carlo** — all
-exercised in `v0.5/attack/` and closed per `v0.5/FINAL-AUDIT-REPORT.md`.
+  exercised in `v0.5/attack/` (historical fuzz/MC harness archived under
+  `archive/v0.5/attack/`) and closed per `v0.5/FINAL-AUDIT-REPORT.md`.
 
 ## Repository layout
 
 ```
-v0.2/ (repo root)   V0.2.1 contract + test plan/log
-v0.3/               economic spec, sim engine, adversarial report
-v0.4/               V0.4 + V0.4.1 spec/sims/tests/attack suite/reports/MC
-v0.5/               economic design, final audit report, attack engine + suites,
-                    fuzz/MC harness, saved run logs and results,
-                    V0.5.1 DVM-BASIC contract skeleton + closure tests +
-                    governance follow-ups
+core/          V0.5.1 authoritative engine
+spec/          state-machine spec, invariants, parameters
+tests/         41 core pytest tests (adversarial + unit + fuzz + crash-matrix)
+dvm/           DVM porting skeleton
+docs/          V0.5.1 documentation + authoritative verification JSON artifacts
+v0.5/          current V0.5.1 contract skeleton, closure tests, attack engine,
+               final audit report, economic design, governance follow-ups
+archive/       historical material (V0.2.1, V0.3, V0.4/V0.4.1, superseded V0.5)
+  v0.2/        original V0.2.1 contract + test plan/log
+  v0.3/        economic spec, sim engine, adversarial report
+  v0.4/        V0.4 + V0.4.1 spec/sims/tests/attack suite/reports/MC
+  v0.5/        superseded V0.5 initial report, shipped sim snapshot,
+               fuzz/MC harness and run logs
 ```
 
 ## History
