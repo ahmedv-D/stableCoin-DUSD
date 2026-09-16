@@ -43,6 +43,14 @@ Per AMM swap fee `F`:
 Each bucket stays in its native denomination; the split is applied at source.
 Engine: `fee_pol_growth_*`, `fee_backer_pool_*`, `fee_insurance_*`.
 
+**Final booking semantics (matches the committed engine, lines 319–323 /
+343–347):** the fee is booked physically as **POL `+ fee * 0.95`** (embedding
+70% depth + 10% growth + 15% backers) **and insurance `+ fee * 0.05`**; the
+three tallies (`0.10` growth / `0.15` backers / `0.05` insurance) are
+attribution-only and add **zero extra atoms**. Conservation gain = exactly the
+gross fee. (Fix `0.80 → 0.95` committed in dade2274; see
+`docs/V0.5.1-FEE-ACCOUNTING-FIX.md`.)
+
 ## Scope boundary
 
 These are research parameters of the deterministic reference model. They are

@@ -135,6 +135,9 @@ Then:
 bounded to `[30, 1095]` days.
 
 The anti-split rule is global/rolling, not limited to a single transaction or address.
+The engine additionally books a **per-owner 1095-day rolling split ledger**
+(`owner_rolling_splits`, booked at every mint) so rotating across addresses
+cannot reset the rolling window; the lock stays global-pressure-driven.
 
 ## POL fee weight
 

@@ -122,7 +122,8 @@ Status: SPEC-AND-ENGINE; the V0.2 fixed 100 DERO/DUSD redemption is
 
 No invariant in this catalogue is a claim of *mainnet security*. Each is an
 economic invariant of the deterministic reference state machine, exercised by
-tests and (for 1–5, 8, 12–14) additionally by 100k-sequence fuzzing and
-Monte-Carlo scenarios. Anything gated on DVM-BASIC integer/storage/custody
-behavior is `SPEC-ONLY` / `NEEDS-TESTNET` until the DVM port runs on a DERO
-testnet.
+tests and (for 1–5, 8, 12–14) additionally by the committed verification
+battery: 102,400-round fuzz (676,838 committed transitions), 60,000 × 8
+Monte-Carlo transitions, and the 36-run crash matrix (`docs/`). Anything
+gated on DVM-BASIC integer/storage/custody behavior is `SPEC-ONLY` /
+`NEEDS-TESTNET` until the DVM port runs on a DERO testnet.

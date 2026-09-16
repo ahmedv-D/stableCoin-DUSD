@@ -10,8 +10,8 @@ Each version is distributed with its economic spec, the simulation engine, the
 adversarial attack suites used to audit it, and the resulting audit report.
 
 All versions to date are **research/simulator artifacts** — none has been
-deployed to mainnet. The verdict on the latest is `V0.5.1: READY FOR TESTNET`,
-pending governance decisions on the residual WEAK instruments.
+deployed to mainnet. The verdict on the latest is `V0.5.1: READY FOR TESTNET
+EVALUATION`, pending governance decisions on the residual WEAK instruments.
 
 ## Version guide
 
@@ -38,6 +38,16 @@ The V0.5.1 fix set: `mint_price="twap"`, `redeem_dero_settle="max"`,
 `amm_cap` (atom cap), `pol_drawdown_guard` (+ ratio), plus a fuzz-found
 ledger-identity repair in `liquidate` and unclaimed-backer-fee rerouting to
 insurance. Details in `v0.5/FINAL-AUDIT-REPORT.md` section 7.
+
+The **final authoritative V0.5.1 verification battery** (full-tree
+`pytest -q`): **53 passed / 0 failed** — 26 adversarial + 11 unit + 1
+crash-matrix + 1 fuzz + 1 fuzz-V0.5.1 + 1 properties/MC + 12 closure tests,
+engine byte-identical. Committed result artifacts: fuzz 102,400 rounds /
+676,838 committed / 0 violations (`docs/FUZZ-V0.5.1-DUSD-RESULTS.json`);
+Monte-Carlo 60,000 × 8 = 480,000 transitions / 0 (`docs/PROPERTIES-V0.5.1-MC-RESULTS.json`);
+crash-matrix 36 runs / 0 (`docs/V0.5.1-CRASH-MATRIX-RESULTS.json`). The
+100k-fuzz / 50k-MC figures above are historical V0.5-audit numbers, not the
+final battery.
 
 ## V0.5.1 implementation artifacts (new)
 
