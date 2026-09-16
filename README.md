@@ -1,156 +1,393 @@
-# DUSD — DERO-native soft-peg stablecoin
+<p align="center">
+  <img src="assets/DUSD-logo-green.png" alt="DUSD — DERO-native soft-peg stablecoin" width="240"/>
+</p>
 
-DUSD is a decentralized stablecoin deployed as a single DVM-BASIC smart
-contract on DERO. Collateralized by DERO, minted as contract-native tokens.
-Each version is distributed with its economic spec, the simulation engine, the
-adversarial attack suites used to audit it, and the resulting audit report.
+# DUSD
 
-All versions to date are **research/simulator artifacts** — none has been
-deployed to mainnet. The verdict on the latest is `V0.5.1: READY FOR TESTNET`,
-pending governance decisions on the residual WEAK instruments.
+DUSD is a DERO-native stablecoin protocol built around a DVM-BASIC economic core. Users mint DUSD against DERO collateral, while DUSD is backed by a unified base of protocol-owned liquidity (POL), insurance, and eligible vault collateral. The protocol uses internal price discovery and evaluates its backing continuously before any redemption.
 
-## Version guide
-
-| Version | Scope | State | Latest artifact |
-|---------|-------|-------|-----------------|
-| V0.2.1 | Single DVM-BASIC vault skeleton, per-vault MINT_RATIO, global ceiling, emergency state machine | Simulator-verified skeleton | `DUSD-V0.2-TESTLOG.md` |
-| V0.3 | Second-simulation economics (POL-origin DERO, mint gating) + adversarial pass | Audit complete | `v0.3/DUSD-V0.3-ADVERSARIAL-REPORT.md` |
-| V0.4 / V0.4.1 | Unified-claim economics, liquidity/insurance splits, recursion fix | Audit complete | `v0.4/DUSD-V0.4-ADVERSARIAL-REPORT.md`, `v0.4/DUSD-V0.4.1-CHANGESET.md` |
-| V0.5 / V0.5.1 | Unified-claim dynamic redemption used by this audit as the final model | Audit + 100k fuzz + 50k MC closed | `v0.5/FINAL-AUDIT-REPORT.md` |
-
-## V0.5.1 headline results
-
-- **S5** redemption TWAP/spot pump wedge: subsidy **2706.92 DERO → 0.00**.
-- **S9/S10** POL-origin recursion drain: **−46.5% → −0.2%** (no drain).
-- **S16** uint64 AMM overflow: closed by a per-swap atom cap (~1845 DERO) that
-  keeps `X*eff <= U64MAX` with margin.
-- **Fuzz:** 100,000 random-op runs, **0 conservation violations** (shipped and
-  V0.5.1).
-- **Monte Carlo (50k runs, heavy-tail shocks + full bank-run):** shipped
-  coverage floor **0.019** vs V0.5.1 **1.00**; redemption real-value delivery
-  **0.369** → **0.625** per claimed DUSD.
-
-The V0.5.1 fix set: `mint_price="twap"`, `redeem_dero_settle="max"`,
-`amm_cap` (atom cap), `pol_drawdown_guard` (+ ratio), plus a fuzz-found
-ledger-identity repair in `liquidate` and unclaimed-backer-fee rerouting to
-insurance. Details in `v0.5/FINAL-AUDIT-REPORT.md` section 7.
-
-## V0.5.1 implementation artifacts (new)
-
-- **`v0.5/DUSD-V0.5.1-CONTRACT.bas`** — executable-spec DVM-BASIC skeleton
-  encoding the V0.5.1 fix set as on-chain gate logic ([F1] mint at
-  `min(P0, TWAP)`, [F2] DERO redeem legs settle at `max(TWAP, spot)`, [F3]
-  `AMM_CAP` atom cap, [F4] POL drawdown guard, [F5] liquidation ledger
-  identity, [F6] unclaimed-backer-fee rollover to insurance). Built to the
-  V0.2.1 contract conventions (atoms, div-before-mul, EXISTS-guards); TWAP is
-  a block-anchored fixed-point decay. Simulator/testnet validation required
-  before any deploy (T1–T5 + HARD TODOs listed in the file).
-- **`v0.5/attack/test_v051_closure_tests.py`** — closure-mapping unit tests.
-  Re-runs S5/S9/S10/S16 under `V051_FIXES` and asserts the shipped FAILs flip
-  to PASS, exercises the fuzz-found liquidation ledger identity, and lints the
-  `.bas` (balanced functions, resolvable labels, fix-gate presence, atom-cap
-  safety). Run: `python3 attack/test_v051_closure_tests.py` (12/12 pass).
-- **`v0.5/GOVERNANCE-FOLLOWUPS.md`** — instruments for the residual WEAK/MIXED
-  findings (S3/S17 TWAP-wedge monitor, S5b `pol_drawdown_ratio` knob, S14
-  backer fee-share policy, S25 residual-S policy) with owners and acceptance
-  criteria.
-- Language note: the DERO on-chain language is DVM-BASIC, not Go. Go builds
-  the `derod` node; the audit engine (`attack/`) is an off-chain Python
-  simulator oracle used to validate the economics before porting the rules
-  into `.bas`.
-
-## V0.5 economics (dynamic redemption + unified backing claim)
-
-Authoritative spec: `v0.5/DUSD-V0.5-ECONOMIC-DESIGN.md`. The V0.5 core decision
-replaces the V0.2 fixed `100 DERO/DUSD` retire path with a **dynamic, basket
-redemption**, and redefines the token:
-
-> **1 DUSD is a pari-passu senior claim on the unified backing base** = POL +
-> insurance + eligible vault collateral.
-
-### Issuance (Genesis / Phase-1)
-- `P0 = 0.01 DUSD/DERO` — Genesis reference only, **not** a permanent floor.
-- `gross_mint = C * P0 * LTV`, `LTV = 0.72`.
-- `POL_DUSD = gross_mint * 0.0025`; `POL_DERO = POL_DUSD / P_spot`; the POL
-  DERO is a real share of the user's deposit (`vault_after = C - POL_DERO`).
-  No DERO is created; existing debt never reprices.
-
-### Endogenous price (no external oracle)
-- `X = POL DERO`, `Y = POL DUSD`, `P_spot = Y / X`.
-- `P_risk` = internal, block-anchored TWAP (BLOCK_S = 18.5 s, alpha 0.05).
-- Risk decisions use `P_risk`, never spot.
-
-### Unified backing NAV & claim factor
-- `Backing_NAV = (Y + P_risk*X) + (I_DUSD + P_risk*I_DERO) + (H*P_risk*C)`
-  with collateral liquidity haircut `H = 0.90`.
-- `Coverage = Backing_NAV / S`; `ClaimFactor = min(1, Coverage)`.
-- `RedeemValue = q * ClaimFactor`. If Coverage ≥ 1 the claim is fully backed;
-  if Coverage < 1 **every** DUSD receives the same proportional haircut.
-  No first-mover advantage (a hard invariant, verified by S6/S24).
-
-### Dynamic redemption basket (settlement order)
-1. liquid DUSD (POL + insurance)
-2. liquid DERO (POL + insurance), valued at `P_risk`
-3. mobilized/liquidated eligible collateral as permitted by the risk engine
-
-Never transfer more assets than controlled; burned DUSD are reduced before
-final accounting; residual under-collateralization is **explicit system loss**
-(bad debt recorded), never hidden token creation.
-
-### Solvency gate, liquidation, fees, locks
-- `MIN_COVERAGE = 1.00` — new mints rejected if proposed backing would breach
-  it (production candidates: 1.10–1.20).
-- `LIQ_CR = 1.20`, insurance absorbs bounded losses before bad-debt
-  recognition.
-- Swap fee split (native units only), 70% pool depth / 10% POL growth / 15%
-  active backers / 5% insurance.
-- POL-origin DERO cannot directly become fresh mint collateral
-  (provenance-based exclusion; cooldown alone is only rate limiting).
-- Backer weight `W = LockedDERO * CommittedLockDays`, lock curve
-  `T(u) = 30 + 1065*u^1.05977 / (u^1.05977 + 0.550857^1.05977)`,
-  bounded 30–1095 days.
-
-### Fundamental limitation (explicit)
-Dynamic redemption guarantees pari-passu claims, no payout above controlled
-assets, explicit haircut when undercollateralized, and no hidden DERO/DUSD
-creation. It **cannot** guarantee an external $1 fiat redemption through an
-arbitrary 90–99% DERO collapse without an independent reserve/capital source.
-
-### V0.5 acceptance target (met)
-Genesis, POL accounting, recursion, Sybil split, fee accounting, pump/dump,
-25–99% crashes, 100% redemption attempt, insurance depletion, POL depletion,
-TWAP manipulation, **100k fuzz**, **50k heavy-tail Monte Carlo** — all
-exercised in `v0.5/attack/` and closed per `v0.5/FINAL-AUDIT-REPORT.md`.
-
-## Repository layout
-
-```
-v0.2/ (repo root)   V0.2.1 contract + test plan/log
-v0.3/               economic spec, sim engine, adversarial report
-v0.4/               V0.4 + V0.4.1 spec/sims/tests/attack suite/reports/MC
-v0.5/               economic design, final audit report, attack engine + suites,
-                    fuzz/MC harness, saved run logs and results,
-                    V0.5.1 DVM-BASIC contract skeleton + closure tests +
-                    governance follow-ups
+```text
+                    ┌───────────────┐
+                    │     User      │
+                    └───────┬───────┘
+                            │
+                     Connect Wallet
+                            │
+             ┌──────────────┴──────────────┐
+             │                             │
+          Mint DUSD                    POL Swap
+             │                             │
+       Deposit DERO                 DERO ↔ DUSD
+             │                             │
+             └──────────────┬──────────────┘
+                            │
+                     DUSD Protocol
+                            │
+          ┌─────────────────┼─────────────────┐
+          │                 │                 │
+        Vaults             POL            Insurance
+          │                 │                 │
+          └─────────────────┼─────────────────┘
+                            │
+                     Unified Backing
+                            │
+                  Coverage / Claim Factor
+                            │
+                     Redemption
 ```
 
-## History
+DUSD connects users, DERO collateral, Vaults, Protocol-Owned Liquidity (POL), and Insurance into a unified backing system. Users can mint DUSD against DERO and ultimately swap DERO ↔ DUSD through POL. The protocol evaluates its backing through Coverage and Claim Factor, which determine the redemption claim available to DUSD holders.
 
-- **V0.1** — design spec + prototype (`DUSD-V1-SPEC.md`, `DUSD-V1-PROTOTYPE.bas`).
-  Superseded by V0.2 and removed from the repo; content lives in git history.
-- **V0.2.1** — outlined skeleton with a two-leaf elm/hard-cap structure, global
-  issuance ceiling, emergency state machine.
-- **V0.3** — economics iteration + first adversarial pass; mint gating on POL
-  coverage introduced.
-- **V0.4 / V0.4.1** — unified-claim economics, native-unit fee splits
-  (70/10/15/5), insurance bucket, V0.4.1 recursion fix from a fuzz failure.
-- **V0.5 / V0.5.1** — final unified-claim model, full S1–S25 + I1–I20 suite,
-  100k fuzz, 50k Monte Carlo, V0.5.1 closure of all three FAIL findings, and
-  V0.5.1 implementation artifacts: DVM-BASIC contract skeleton, closure unit
-  tests, governance follow-up instruments.
+## Status
 
-## Not yet proven (testnet-required)
+| Component | Status |
+|---|---|
+| V0.5.1 economic state machine | ✅ Complete |
+| Economic/invariant testing | ✅ Complete |
+| DERO/DVM integration | 🔄 Next |
+| Production POL | 🔄 Next |
+| Protocol API/read layer | ⏳ Planned |
+| Frontend | ⏳ Planned |
+| Testnet | ⏳ Planned |
+| External security review | ⏳ Planned |
+| Production deployment | ⏳ Future |
 
-Part B of the V0.2 test plan still gates *any* deployment: T1 retirement
-irreversibility, T2 exact DUSD asset-input semantics, T3 core DERO custody,
-plus the DVM-level `amm_cap` implementation path for V0.5.1.
+V0.5.1 is the current economic reference implementation and is ready for continued testnet-oriented development. The complete user-facing protocol is not finished yet.
+
+## What is DUSD?
+
+DUSD is a DERO-native stablecoin protocol designed around:
+
+- **DERO collateral** — DUSD is minted against DERO deposited as collateral.
+- **Vault-based debt** — each mint creates a vault/debt position that tracks collateral and DUSD owed.
+- **Protocol-Owned Liquidity (POL)** — a protocol-owned DERO/DUSD liquidity pool that provides internal price discovery.
+- **Insurance** — an additional backing buffer held by the protocol.
+- **Unified backing** — POL, insurance, and eligible vault collateral together form a single backing base behind all DUSD.
+- **Internal price discovery** — prices are derived from protocol reserves, not external oracles.
+- **TWAP-based risk accounting** — risk-sensitive calculations use a block-anchored TWAP rather than a single spot price.
+- **Dynamic lock durations** — heavier mint pressure can lengthen the lock on new collateral.
+- **Rolling anti-split protection** — the lock mechanism applies to global and owner-level pressure, so large mints cannot be split into many small ones to bypass it.
+- **Pari-passu redemption** — every DUSD holder shares the same proportional claim on the backing.
+
+No version has been deployed to mainnet. All work to date is research/simulator and reference-implementation material.
+
+## How DUSD Works
+
+### Mint
+
+1. A user deposits DERO.
+2. The protocol calculates the allowed DUSD amount.
+3. A vault/debt position is created.
+4. DUSD is issued under the protocol rules.
+
+Mint price:
+
+```text
+mint_price = min(P0, TWAP)
+```
+
+Reference price:
+
+```text
+P0 = 0.01 DUSD/DERO
+```
+
+`P0` is an initial/reference issuance price. It is **not** a permanent floor and **not** a guaranteed peg.
+
+### Use DUSD
+
+DUSD is intended to be used within the DERO ecosystem and, ultimately, traded through POL.
+
+### Redeem
+
+Users can redeem DUSD according to the current backing state. The redemption claim depends on the protocol's **Coverage** and **Claim Factor**.
+
+## Economic Model
+
+The protocol combines POL, insurance, and eligible vault collateral into a single backing valuation.
+
+| Component | NAV |
+|---|---|
+| POL | `POL_NAV = Y + P_risk × X` |
+| Insurance | `Insurance_NAV = I_DUSD + P_risk × I_DERO` |
+| Eligible collateral | `Collateral_NAV = H × P_risk × C` |
+| **Backing** | `Backing_NAV = POL_NAV + Insurance_NAV + Collateral_NAV` |
+
+Where `X` is the POL DERO reserve, `Y` is the POL DUSD reserve, `P_risk` is the risk price, `I_*` are insurance reserves, `C` is eligible collateral, and `H` is the collateral liquidity haircut.
+
+Backing is measured against outstanding DUSD:
+
+```text
+Coverage     = Backing_NAV / Outstanding DUSD
+ClaimFactor  = min(1, Coverage)
+```
+
+- `Coverage >= 1` → Claim Factor = 1.
+- `Coverage < 1` → Claim Factor falls below 1.
+
+The protocol explicitly represents deterioration in backing instead of assuming full redemption under arbitrary collateral conditions. This is not a claim of guaranteed solvency.
+
+## Unified Backing
+
+DUSD is designed as a **pari-passu senior claim** on the unified backing base, which consists of:
+
+- POL
+- Insurance
+- eligible vault collateral
+
+The unified backing is what stands behind every DUSD, and it is evaluated as a whole before any redemption is settled. This creates a unified accounting view of the assets supporting outstanding DUSD; it does not by itself guarantee solvency or market stability.
+
+## POL — Protocol-Owned Liquidity
+
+POL is the protocol-owned liquidity layer. Its reserves are:
+
+```text
+X = DERO reserve
+Y = DUSD reserve
+```
+
+Spot price:
+
+```text
+P_spot = Y / X
+```
+
+The current model is a constant-product AMM with a **0.30% swap fee**.
+
+The eventual user interface should expose:
+
+- spot price
+- expected output
+- fee
+- price impact
+- available liquidity
+
+### Critical rule
+
+**POL never creates DERO.**
+
+DERO entering POL must come from real protocol or user deposits.
+
+### Fee attribution
+
+| Allocation | Share |
+|---|---:|
+| POL depth | 70% |
+| POL growth | 10% |
+| Active backers | 15% |
+| Insurance | 5% |
+| **Total** | **100%** |
+
+These are economic attribution categories for the swap fee. They do not represent extra asset creation.
+
+## Spot Price vs Risk Price
+
+- **Spot price** (`P_spot = Y / X`) is used for immediate POL swaps.
+- **Risk price** is a block-anchored TWAP used for risk-sensitive calculations.
+
+Current TWAP window:
+
+```text
+TWAP_WINDOW = 30 blocks
+```
+
+Spot and risk prices serve different purposes. The protocol does not treat a single instantaneous swap price as its only risk reference.
+
+## Redemption and Claim Factor
+
+DUSD is designed as a pari-passu senior claim on the unified backing.
+
+Claim Factor:
+
+```text
+ClaimFactor = min(1, Coverage)
+```
+
+A redemption of `q` DUSD has a target claim value of:
+
+```text
+q × ClaimFactor
+```
+
+DERO redemption settlement uses:
+
+```text
+max(TWAP, Spot)
+```
+
+If `Coverage < 1`, the Claim Factor falls below 1 and the resulting shortfall is explicitly represented through the protocol's bad-debt/writeoff accounting where applicable. The protocol does not guarantee a flat $1 redemption under arbitrary market conditions.
+
+## How Risk Is Handled
+
+The current design uses:
+
+- global DUSD ceiling
+- minimum-coverage mint gate
+- dynamic lock duration
+- global rolling anti-split protection
+- provenance restrictions on POL-origin DERO
+- Coverage / Claim Factor
+- explicit bad-debt accounting
+- conservation-preserving fee accounting
+- bounded arithmetic
+- invariant and fuzz testing
+
+Current important parameters:
+
+```text
+MIN_COVERAGE   = 1.00
+LIQ_CR         = 1.20
+GLOBAL_CEILING = 250,000 DUSD
+TWAP_WINDOW    = 30
+```
+
+### Resilience by Design
+
+```text
+DERO price falls
+        ↓
+Backing NAV falls
+        ↓
+Coverage falls
+        ↓
+Claim Factor falls
+        ↓
+Redemption haircut increases
+```
+
+This is a risk-management mechanism, not a guarantee of stability, solvency, or full redemption.
+
+## V0.5.1 Verification
+
+The final V0.5.1 verification battery contains 53 passed / 0 failed tests.
+
+| Component | Result |
+|---|---:|
+| **Final verification battery** | **53 passed / 0 failed** |
+| Adversarial tests | 26 |
+| Unit tests | 11 |
+| Crash-matrix test | 1 |
+| Fuzz test | 1 |
+| Fuzz-V0.5.1 test | 1 |
+| Monte Carlo test | 1 |
+| Closure tests | 12 |
+| **Total** | **53** |
+
+Committed verification evidence:
+
+```text
+fuzz:        102,400 rounds / 676,838 committed / 0 violations
+Monte Carlo: 60,000 × 8 = 480,000 transitions / 0 violations
+crash matrix: 36 cells
+```
+
+Earlier reported counts (e.g. 41 passed / 0 failed) are historical and are **not** the final battery.
+
+This battery is **not** a formal verification, an external audit, a proof of solvency, or a proof of market stability. It verifies the reference implementation against the economic invariants in this repository.
+
+In the documentation the verdict on the reference engine is `V0.5.1: READY FOR TESTNET EVALUATION` — an evaluation status, not a mainnet deployment.
+
+See the detailed reports in [`docs/`](docs/), including the [V0.5.1 test report](docs/V0.5.1-TEST-REPORT.md), [compliance audit](docs/V0.5.1-COMPLIANCE-AUDIT.md), [implementation report](docs/V0.5.1-IMPLEMENTATION-REPORT.md), and the [state-machine spec](spec/DUSD-V0.5.1-STATE-MACHINE-SPEC.md).
+
+## Roadmap
+
+### Phase 1 — Economic Core
+
+**Status: Complete**
+
+V0.5.1 state machine and verification.
+
+### Phase 2 — DERO / DVM Integration
+
+**Status: Next**
+
+Real DERO/DVM integration: DERO deposits, vault creation, DUSD mint/burn, repayment, collateral withdrawal, liquidation, and provenance enforcement.
+
+### Phase 3 — Production POL
+
+**Status: Next**
+
+DERO ↔ DUSD swaps, reserves, 0.30% fee, price calculation, liquidity accounting, TWAP observations, and conservation-preserving settlement.
+
+### Phase 4 — Protocol API / Read Layer
+
+**Status: Planned**
+
+Expose DUSD supply, POL reserves, spot price, TWAP, Coverage, Claim Factor, insurance, collateral, vaults, debt, and lock status.
+
+### Phase 5 — Final Frontend
+
+**Status: Planned**
+
+Dashboard, wallet connection, minting, vaults, POL swaps, and redemption.
+
+### Phase 6 — Testnet
+
+**Status: Planned**
+
+Full integration and testing of mint, swaps, repayment, redemption, liquidation, extreme conditions, conservation, and invariants.
+
+### Phase 7 — External Security Review
+
+**Status: Planned**
+
+Independent code and economic review, plus an external security audit.
+
+### Phase 8 — Production
+
+**Status: Future**
+
+Only after successful testnet operation and security review.
+
+## Repository
+
+The repository is organized so readers can move from this overview into the implementation and verification material.
+
+```
+stableCoin-DUSD/
+├── README.md
+├── .gitignore
+├── assets/
+├── core/
+├── dvm/
+├── spec/
+├── tests/
+├── docs/
+├── v0.5/
+└── archive/
+    ├── v0.2/
+    ├── v0.3/
+    ├── v0.4/
+    └── v0.5/
+```
+
+```text
+core/      Economic implementation
+dvm/       DVM integration work
+spec/      Protocol specifications
+tests/     Test suite
+docs/      Documentation and verification evidence
+v0.5/      Current V0.5.1 contract/closure material
+archive/   Historical versions and superseded experiments
+assets/    Project assets
+```
+
+## Limitations
+
+- Production DERO/DVM integration is not complete.
+- Production POL is not complete.
+- The final frontend is not complete.
+- Testnet deployment is not complete.
+- External security review is not complete.
+- Market behavior cannot be guaranteed.
+- Full redemption cannot be guaranteed under arbitrary collateral collapse.
+
+## Disclaimer
+
+DUSD is experimental software.
+
+V0.5.1 is the current economic reference implementation and is intended for continued development and testnet evaluation.
+
+The complete production system is not yet finished and has not received an independent external security audit.
+
+Nothing in this README should be interpreted as a guarantee of price stability, solvency, liquidity, or redemption value under arbitrary market conditions.

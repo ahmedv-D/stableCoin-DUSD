@@ -1,0 +1,7 @@
+{
+  "purpose": "V0.5.1 fuzz \u2014 102k op sequences, real engine, real getters only",
+  "rounds": 102400,
+  "committed": 676838,
+  "violations_count": 0,
+  "violation_sample": []
+}

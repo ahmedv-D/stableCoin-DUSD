@@ -188,4 +188,4 @@ Flag-toggles of the same engine; OFF = shipped, ON = V0.5.1.
 
 **V0.5.1 (change set in section 7):** **READY FOR TESTNET**, with governance ownership of S3/S17 wedges, S14 fee-sharing, and the pol_drawdown_ratio knob before any mainnet evaluation. Mainnet-readiness requires the live-chain re-checks in section 8 and a pass by the DVM team on the `amm_cap` implementation path.
 
-Files in support of this report: `dusd_v05_engine.py` (sandbox + V0.5.1 toggles), `dusd_v05_attacks.py` (S1–S25+I1–I20 + run_fixed), `fuzz_mc.py` (100k fuzz + 50k MC), `fuzz_mc_results.json`, `run_final.log` (verbatim run), `DUSD-V0.5-ECONOMIC-DESIGN.md`.
+Files in support of this report: `v0.5/attack/dusd_v05_engine.py` (sandbox + V0.5.1 toggles), `v0.5/attack/dusd_v05_attacks.py` (S1–S25+I1–I20 + run_fixed), `archive/v0.5/attack/fuzz_mc.py` (100k fuzz + 50k MC), `archive/v0.5/attack/fuzz_mc_results.json`, `archive/v0.5/attack/run_final.log` (verbatim run), `v0.5/DUSD-V0.5-ECONOMIC-DESIGN.md`.
